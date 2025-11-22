@@ -1,0 +1,16 @@
+There is something wrong with this function. It should return the median of a list. However, for the list [10, 2, 5], it returns 2 when it should return 5. Edit the following code so that it correctly calculated the median.
+
+def calculate_median(numbers):
+    """
+    Calculates the median of a list of numbers.
+    """
+    if not numbers:
+        return None
+
+    n = len(numbers)
+    mid_index = n // 2
+
+    if n % 2 == 1:
+        return numbers[mid_index]
+    else:
+        return (numbers[mid_index - 1] + numbers[mid_index]) / 2

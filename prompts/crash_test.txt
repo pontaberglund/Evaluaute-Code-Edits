@@ -1,0 +1,11 @@
+The following function is supposed to process a list of user ids. However, when I run it, I get an error. Edit the function to run without an error and process the used ids correctly.
+
+def process_user_ids(user_ids):
+    print(f"Processing {len(user_ids)} users...")
+
+    for i in range(len(user_ids) + 1):
+        current_id = user_ids[i]
+        # Simulate processing
+        processed_id = current_id * 1000
+        print(f"User ID {current_id} processed as {processed_id}")
+
