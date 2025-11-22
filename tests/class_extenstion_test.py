@@ -13,13 +13,3 @@ class InventoryManager:
     def check_stock(self, item_name):
         """Returns the current stock of an item."""
         return self.inventory.get(item_name, 0)
-
-    # --- TASK: CANDIDATE MUST IMPLEMENT THIS METHOD ---
-    # def remove_stock(self, item_name, quantity):
-    #     pass
-
-
-# Example usage
-store = InventoryManager()
-store.add_stock("Apples", 50)
-store.add_stock("Bananas", 20)
