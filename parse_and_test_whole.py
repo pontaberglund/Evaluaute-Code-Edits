@@ -1,5 +1,6 @@
 import json
 import contextlib
+from utils import test_logic, test_crash, test_class_extension
 
 
 def parse_and_test_whole(file_path="model_responses.json"):
@@ -60,49 +61,27 @@ def parse_and_test_whole(file_path="model_responses.json"):
         code_block = extract_code_block(entry["response"])
         match entry["task"]:
             case "Logic Test":
-                code_block += ("\ndata=[10,2,5]\nresult=calculate_median(data)")
-                local_scope = {}
-                try:
-                    exec(code_block, {}, local_scope)
-                    if local_scope.get("result") == 5:
-                        logic_test_passed += 1
-                        model_stats[model]["Logic Test"]["passed"] += 1
-                    else:
-                        logic_test_failed += 1
-                        model_stats[model]["Logic Test"]["failed"] += 1
-                        failed_code_blocks.append(code_block)
-                except Exception as e:
-                    print(f"Error executing code for Logic Test: {e}")
+                if test_logic(code_block):
+                    logic_test_passed += 1
+                    model_stats[model]["Logic Test"]["passed"] += 1
+                else:
                     logic_test_failed += 1
                     model_stats[model]["Logic Test"]["failed"] += 1
                     failed_code_blocks.append(code_block)
 
             case "Crash Test":
-                code_block += ("\nids=[1,2,3,4,5]\nprocess_user_ids(ids)")
-                try:
-                    exec(code_block, {}, {})
+                if test_crash(code_block):
                     crash_test_passed += 1
                     model_stats[model]["Crash Test"]["passed"] += 1
-                except Exception as e:
-                    print(f"Error executing code for Crash Test: {e}")
+                else:
                     crash_test_failed += 1
                     model_stats[model]["Crash Test"]["failed"] += 1
                     failed_code_blocks.append(code_block)
             case "Class Extension Test":
-                code_block += ("\nstore=InventoryManager()\nstore.add_stock('apple',10)\nstore.remove_stock('apple',4)\ncurrent_stock=store.check_stock('apple')")
-                local_scope = {}
-                try:
-                    exec(code_block, {}, local_scope)
-                    if local_scope.get("current_stock") == 6:
-                        class_extension_test_passed += 1
-                        model_stats[model]["Class Extension Test"]["passed"] += 1
-                    else:
-                        class_extension_test_failed += 1
-                        model_stats[model]["Class Extension Test"]["failed"] += 1
-                        failed_code_blocks.append(code_block)
-                except Exception as e:
-                    print(
-                        f"Error executing code for Class Extension Test: {e}")
+                if test_class_extension(code_block):
+                    class_extension_test_passed += 1
+                    model_stats[model]["Class Extension Test"]["passed"] += 1
+                else:
                     class_extension_test_failed += 1
                     model_stats[model]["Class Extension Test"]["failed"] += 1
                     failed_code_blocks.append(code_block)
@@ -124,7 +103,8 @@ for code in results["failed_code_blocks"]:
     print("-----")
     print(code)
     print("-----")
-    print("\n"*10)
+
+"""
 print(
     f"Logic Test - Passed: {results['logic_test_passed']}, Failed: {results['logic_test_failed']}")
 print(
@@ -138,3 +118,5 @@ for model, stats in results["model_stats"].items():
     for test_type, result in stats.items():
         print(
             f"  {test_type} - Passed: {result['passed']}, Failed: {result['failed']}")
+            
+"""

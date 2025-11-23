@@ -2,51 +2,7 @@ import json
 import contextlib
 import re
 
-LOGIC_TEST_CODE_SNIPPET = """
-def calculate_median(numbers):
-    \"\"\"
-    Calculates the median of a list of numbers.
-    \"\"\"
-    if not numbers:
-        return None
-
-    n = len(numbers)
-    mid_index = n // 2
-
-    if n % 2 == 1:
-        return numbers[mid_index]
-    else:
-        return (numbers[mid_index - 1] + numbers[mid_index]) / 2
-""".strip()
-
-CRASH_TEST_CODE_SNIPPET = """
-def process_user_ids(user_ids):
-    print(f"Processing {len(user_ids)} users...")
-
-    for i in range(len(user_ids) + 1):
-        current_id = user_ids[i]
-        # Simulate processing
-        processed_id = current_id * 1000
-        print(f"User ID {current_id} processed as {processed_id}")
-""".strip()
-
-CLASS_EXTENSION_TEST_CODE_SNIPPET = """
-class InventoryManager:
-    def __init__(self):
-        self.inventory = {}
-
-    def add_stock(self, item_name, quantity):
-        \"\"\"Adds stock for a specific item.\"\"\"
-        if item_name in self.inventory:
-            self.inventory[item_name] += quantity
-        else:
-            self.inventory[item_name] = quantity
-        print(f"Added {quantity} of {item_name}.")
-
-    def check_stock(self, item_name):
-        \"\"\"Returns the current stock of an item.\"\"\"
-        return self.inventory.get(item_name, 0)
-""".strip()
+from utils import test_logic, test_crash, test_class_extension, LOGIC_TEST_CODE_SNIPPET, CRASH_TEST_CODE_SNIPPET, CLASS_EXTENSION_TEST_CODE_SNIPPET
 
 
 def parse_and_test_diff(file_path="model_responses.json"):
@@ -74,7 +30,28 @@ def parse_and_test_diff(file_path="model_responses.json"):
         elif task == "Class Extension Test":
             code_block = CLASS_EXTENSION_TEST_CODE_SNIPPET
         for search, replace in matches:
-            code_block = code_block.replace(search, replace)
+            if search in code_block:
+                code_block = code_block.replace(search, replace)
+            else:
+                search_lines = [line.strip() for line in search.splitlines()]
+                code_lines = code_block.splitlines()
+
+                for i in range(len(code_lines) - len(search_lines) + 1):
+                    chunk = code_lines[i:i + len(search_lines)]
+                    chunk_stripped = [line.strip() for line in chunk]
+
+                    if chunk_stripped == search_lines:
+                        indent = ""
+                        for line in chunk:
+                            if line.strip():
+                                indent = line[:line.find(line.strip())]
+                                break
+                        replace_lines = replace.splitlines()
+                        new_replace_lines = [
+                            indent + line for line in replace_lines]
+                        code_lines[i:i + len(search_lines)] = new_replace_lines
+                        code_block = "\n".join(code_lines)
+                        break
 
         return code_block
 
@@ -117,27 +94,12 @@ def parse_and_test_diff(file_path="model_responses.json"):
             case "Logic Test":
                 code_block = extract_code_block(
                     entry["response"], "Logic Test")
-                if not code_block:
-                    print("No valid search/replace blocks found for Logic Test.")
-                    logic_test_failed += 1
-                    model_stats[model]["Logic Test"]["failed"] += 1
-                    failed_code_blocks.append((pre_code_block, code_block))
-                    continue
 
                 code_block += ("\ndata=[10,2,5]\nresult=calculate_median(data)")
-
-                local_scope = {}
-                try:
-                    exec(code_block, {}, local_scope)
-                    if local_scope.get("result") == 5:
-                        logic_test_passed += 1
-                        model_stats[model]["Logic Test"]["passed"] += 1
-                    else:
-                        logic_test_failed += 1
-                        model_stats[model]["Logic Test"]["failed"] += 1
-                        failed_code_blocks.append((pre_code_block, code_block))
-                except Exception as e:
-                    print(f"Error executing code for Logic Test: {e}")
+                if test_logic(code_block):
+                    logic_test_passed += 1
+                    model_stats[model]["Logic Test"]["passed"] += 1
+                else:
                     logic_test_failed += 1
                     model_stats[model]["Logic Test"]["failed"] += 1
                     failed_code_blocks.append((pre_code_block, code_block))
@@ -145,46 +107,27 @@ def parse_and_test_diff(file_path="model_responses.json"):
             case "Crash Test":
                 code_block = extract_code_block(
                     entry["response"], "Crash Test")
-                if not code_block:
-                    print("No valid search/replace blocks found for Crash Test.")
-                    crash_test_failed += 1
-                    model_stats[model]["Crash Test"]["failed"] += 1
-                    failed_code_blocks.append((pre_code_block, code_block))
-                    continue
+
                 code_block += ("\nids=[1,2,3,4,5]\nprocess_user_ids(ids)")
-                try:
-                    exec(code_block, {}, {})
+
+                if test_crash(code_block):
                     crash_test_passed += 1
                     model_stats[model]["Crash Test"]["passed"] += 1
-                except Exception as e:
-                    print(f"Error executing code for Crash Test: {e}")
+                else:
                     crash_test_failed += 1
                     model_stats[model]["Crash Test"]["failed"] += 1
                     failed_code_blocks.append((pre_code_block, code_block))
+
             case "Class Extension Test":
                 code_block = extract_code_block(
                     entry["response"], "Class Extension Test")
-                if not code_block:
-                    print(
-                        "No valid search/replace blocks found for Class Extension Test.")
-                    class_extension_test_failed += 1
-                    model_stats[model]["Class Extension Test"]["failed"] += 1
-                    failed_code_blocks.append((pre_code_block, code_block))
-                    continue
+
                 code_block += ("\nstore=InventoryManager()\nstore.add_stock('apple',10)\nstore.remove_stock('apple',4)\ncurrent_stock=store.check_stock('apple')")
-                local_scope = {}
-                try:
-                    exec(code_block, {}, local_scope)
-                    if local_scope.get("current_stock") == 6:
-                        class_extension_test_passed += 1
-                        model_stats[model]["Class Extension Test"]["passed"] += 1
-                    else:
-                        class_extension_test_failed += 1
-                        model_stats[model]["Class Extension Test"]["failed"] += 1
-                        failed_code_blocks.append((pre_code_block, code_block))
-                except Exception as e:
-                    print(
-                        f"Error executing code for Class Extension Test: {e}")
+
+                if test_class_extension(code_block):
+                    class_extension_test_passed += 1
+                    model_stats[model]["Class Extension Test"]["passed"] += 1
+                else:
                     class_extension_test_failed += 1
                     model_stats[model]["Class Extension Test"]["failed"] += 1
                     failed_code_blocks.append((pre_code_block, code_block))
@@ -210,7 +153,8 @@ for pre_code_block, code_block in results["failed_code_blocks"]:
     print("Modified Code:")
     print(code_block)
     print("-----")
-    print("\n"*10)
+
+"""
 print(
     f"Logic Test - Passed: {results['logic_test_passed']}, Failed: {results['logic_test_failed']}")
 print(
@@ -224,3 +168,5 @@ for model, stats in results["model_stats"].items():
     for test_type, result in stats.items():
         print(
             f"  {test_type} - Passed: {result['passed']}, Failed: {result['failed']}")
+            
+"""
