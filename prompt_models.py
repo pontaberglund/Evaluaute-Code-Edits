@@ -147,7 +147,7 @@ for model in tqdm(models_to_try, desc="Models"):
             time.sleep(15)  # To avoid hitting rate limits
 
 # Save to JSON
-with open("model_responses_mistral.json", "w") as f:
+with open("model_responses.json", "w") as f:
     json.dump(output_data, f, indent=4)
 
-print("Responses saved to model_responses_mistral.json")
+print("Responses saved to model_responses.json")
