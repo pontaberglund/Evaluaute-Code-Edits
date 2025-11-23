@@ -5,7 +5,7 @@ from utils import test_logic, test_crash, test_class_extension
 
 def parse_and_test_whole(file_path="model_responses.json"):
     # Read model_responses.json
-    with open("model_responses.json", "r") as f:
+    with open(file_path, "r") as f:
         data = json.load(f)
 
     # Filter responses for a specific edit type - whole
@@ -67,7 +67,7 @@ def parse_and_test_whole(file_path="model_responses.json"):
                 else:
                     logic_test_failed += 1
                     model_stats[model]["Logic Test"]["failed"] += 1
-                    failed_code_blocks.append(code_block)
+                    failed_code_blocks.append((model, code_block))
 
             case "Crash Test":
                 if test_crash(code_block):
@@ -76,7 +76,7 @@ def parse_and_test_whole(file_path="model_responses.json"):
                 else:
                     crash_test_failed += 1
                     model_stats[model]["Crash Test"]["failed"] += 1
-                    failed_code_blocks.append(code_block)
+                    failed_code_blocks.append((model, code_block))
             case "Class Extension Test":
                 if test_class_extension(code_block):
                     class_extension_test_passed += 1
@@ -84,7 +84,7 @@ def parse_and_test_whole(file_path="model_responses.json"):
                 else:
                     class_extension_test_failed += 1
                     model_stats[model]["Class Extension Test"]["failed"] += 1
-                    failed_code_blocks.append(code_block)
+                    failed_code_blocks.append((model, code_block))
 
     return {"logic_test_failed": logic_test_failed,
             "logic_test_passed": logic_test_passed,
@@ -99,8 +99,9 @@ def parse_and_test_whole(file_path="model_responses.json"):
 with contextlib.redirect_stdout(None):
     results = parse_and_test_whole()
 print("\nFailed Code Blocks:")
-for code in results["failed_code_blocks"]:
+for model, code in results["failed_code_blocks"]:
     print("-----")
+    print(f"Model: {model}")
     print(code)
     print("-----")
 
