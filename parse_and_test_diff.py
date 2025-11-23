@@ -19,6 +19,7 @@ def parse_and_test_diff(file_path="model_responses.json"):
         if response.startswith("```") and response.endswith("```"):
             response = "\n".join(response.split("\n")[1:-1])
 
+        # Extract SEARCH/REPLACE sections
         pattern = r"<{3,}\s*SEARCH\s*\n(.*?)\n\s*={3,}\s*\n(.*?)\n\s*(?:>{3,}\s*REPLACE|REPLACE\s*>{3,}|>{3,})"
         matches = re.findall(pattern, response, re.DOTALL)
 
@@ -30,8 +31,10 @@ def parse_and_test_diff(file_path="model_responses.json"):
         elif task == "Class Extension Test":
             code_block = CLASS_EXTENSION_TEST_CODE_SNIPPET
         for search, replace in matches:
+            # If exact match, do direct replace
             if search in code_block:
                 code_block = code_block.replace(search, replace)
+            # Else do line by line match, with normalization
             else:
                 search_lines = [line.strip() for line in search.splitlines()]
                 code_lines = code_block.splitlines()
