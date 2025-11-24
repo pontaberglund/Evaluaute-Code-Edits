@@ -1,14 +1,24 @@
+import sys
+import os
 import json
 import contextlib
-from utils import test_logic, test_crash, test_class_extension
+
+# Make the script runnable from anywhere and fix imports
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+from src.utils import test_logic, test_crash, test_class_extension
 
 
-def parse_and_test_whole(file_path="model_responses.json"):
+def parse_and_test_whole(file_path=None):
+    if file_path is None:
+        file_path = os.path.join(project_root, 'data', 'model_responses.json')
+    
     # Read model_responses.json
     with open(file_path, "r") as f:
         data = json.load(f)
 
-    # Filter responses for a specific edit type - whole
     whole_edit_responses = [
         entry for entry in data if entry['edit_type'] == 'whole']
 
@@ -30,7 +40,6 @@ def parse_and_test_whole(file_path="model_responses.json"):
     class_extension_test_passed = 0
     class_extension_test_failed = 0
 
-    # Keep stats for specific models
     models = [
         "x-ai/grok-4.1-fast:free",
         "kwaipilot/kat-coder-pro:free",
@@ -96,28 +105,29 @@ def parse_and_test_whole(file_path="model_responses.json"):
             "failed_code_blocks": failed_code_blocks}
 
 
-with contextlib.redirect_stdout(None):
-    results = parse_and_test_whole()
-print("\nFailed Code Blocks:")
-for model, code in results["failed_code_blocks"]:
-    print("-----")
-    print(f"Model: {model}")
-    print(code)
-    print("-----")
+if __name__ == "__main__":
+    with contextlib.redirect_stdout(None):
+        results = parse_and_test_whole()
+    print("\nFailed Code Blocks:")
+    for model, code in results["failed_code_blocks"]:
+        print("-----")
+        print(f"Model: {model}")
+        print(code)
+        print("-----")
 
-"""
-print(
-    f"Logic Test - Passed: {results['logic_test_passed']}, Failed: {results['logic_test_failed']}")
-print(
-    f"Crash Test - Passed: {results['crash_test_passed']}, Failed: {results['crash_test_failed']}")
-print(
-    f"Class Extension Test - Passed: {results['class_extension_test_passed']}, Failed: {results['class_extension_test_failed']}")
+    """
+    print(
+        f"Logic Test - Passed: {results['logic_test_passed']}, Failed: {results['logic_test_failed']}")
+    print(
+        f"Crash Test - Passed: {results['crash_test_passed']}, Failed: {results['crash_test_failed']}")
+    print(
+        f"Class Extension Test - Passed: {results['class_extension_test_passed']}, Failed: {results['class_extension_test_failed']}")
 
-print("\nModel Specific Stats:")
-for model, stats in results["model_stats"].items():
-    print(f"\nModel: {model}")
-    for test_type, result in stats.items():
-        print(
-            f"  {test_type} - Passed: {result['passed']}, Failed: {result['failed']}")
-            
-"""
+    print("\nModel Specific Stats:")
+    for model, stats in results["model_stats"].items():
+        print(f"\nModel: {model}")
+        for test_type, result in stats.items():
+            print(
+                f"  {test_type} - Passed: {result['passed']}, Failed: {result['failed']}")
+                
+    """

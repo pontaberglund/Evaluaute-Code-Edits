@@ -1,11 +1,17 @@
-from openai import OpenAI
 import os
-from dotenv import load_dotenv
 import json
 import time
 from tqdm import tqdm
+from openai import OpenAI
+from dotenv import load_dotenv
+import sys
 
-load_dotenv()
+# Make the script runnable from anywhere
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+load_dotenv(os.path.join(project_root, '.env'))
 
 client = OpenAI(
     base_url="https://openrouter.ai/api/v1",
@@ -50,18 +56,22 @@ edit_types_prompts = [
 Build the prompts
 """
 
+def read_prompt_file(file_name):
+    with open(os.path.join(project_root, 'prompts', file_name)) as f:
+        return f.read()
+
 crash_test_prompts = [
-    f"{open('prompts/crash_test.txt').read()}\n\n{edit_type}"
+    f"{read_prompt_file('crash_test.txt')}\n\n{edit_type}"
     for edit_type in edit_types_prompts
 ]
 
 class_extension_prompts = [
-    f"{open('prompts/class_extension_test.txt').read()}\n\n{edit_type}"
+    f"{read_prompt_file('class_extension_test.txt')}\n\n{edit_type}"
     for edit_type in edit_types_prompts
 ]
 
 logic_test_prompts = [
-    f"{open('prompts/logic_test.txt').read()}\n\n{edit_type}"
+    f"{read_prompt_file('logic_test.txt')}\n\n{edit_type}"
     for edit_type in edit_types_prompts
 ]
 
@@ -147,7 +157,8 @@ for model in tqdm(models_to_try, desc="Models"):
             time.sleep(15)  # To avoid hitting rate limits
 
 # Save to JSON
-with open("model_responses.json", "w") as f:
+output_file = os.path.join(project_root, 'data', 'model_responses.json')
+with open(output_file, "w") as f:
     json.dump(output_data, f, indent=4)
 
-print("Responses saved to model_responses.json")
+print(f"Responses saved to {output_file}")

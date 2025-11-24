@@ -1,27 +1,34 @@
+import os
 import json
 import contextlib
 import re
+import sys
 
-from utils import test_logic, test_crash, test_class_extension, LOGIC_TEST_CODE_SNIPPET, CRASH_TEST_CODE_SNIPPET, CLASS_EXTENSION_TEST_CODE_SNIPPET
+# Make the script runnable from anywhere and fix imports
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+from src.utils import test_logic, test_crash, test_class_extension, LOGIC_TEST_CODE_SNIPPET, CRASH_TEST_CODE_SNIPPET, CLASS_EXTENSION_TEST_CODE_SNIPPET
 
 
-def parse_and_test_diff(file_path="model_responses.json"):
+def parse_and_test_udiff(file_path=None):
+    if file_path is None:
+        file_path = os.path.join(project_root, 'data', 'model_responses.json')
+
     # Read model_responses.json
     with open(file_path, "r") as f:
         data = json.load(f)
 
-    # Filter responses for a specific edit type - diff
-    diff_edit_responses = [
-        entry for entry in data if entry['edit_type'] == 'diff']
+    udiff_edit_responses = [
+        entry for entry in data if entry['edit_type'] == 'udiff']
 
     def extract_code_block(response, task):
         response = response
         if response.startswith("```") and response.endswith("```"):
             response = "\n".join(response.split("\n")[1:-1])
 
-        # Extract SEARCH/REPLACE sections
-        pattern = r"<{3,}\s*SEARCH\s*\n(.*?)\n\s*={3,}\s*\n(.*?)\n\s*(?:>{3,}\s*REPLACE|REPLACE\s*>{3,}|>{3,})"
-        matches = re.findall(pattern, response, re.DOTALL)
+        hunk_splits = re.split(r"(^@@.*?@@)", response, re.MULTILINE)
 
         code_block = None
         if task == "Logic Test":
@@ -30,31 +37,50 @@ def parse_and_test_diff(file_path="model_responses.json"):
             code_block = CRASH_TEST_CODE_SNIPPET
         elif task == "Class Extension Test":
             code_block = CLASS_EXTENSION_TEST_CODE_SNIPPET
-        for search, replace in matches:
-            # If exact match, do direct replace
-            if search in code_block:
-                code_block = code_block.replace(search, replace)
-            # Else do line by line match, with normalization
+
+        for i in range(1, len(hunk_splits), 2):
+            if i + 1 >= len(hunk_splits):
+                break
+
+            content = hunk_splits[i + 1]
+
+            search_lines = []
+            replace_lines = []
+
+            for line in content.split("\n"):
+                if line.strip() == "":
+                    continue
+                if line.startswith("-"):
+                    search_lines.append(line[1:])
+                elif line.startswith("+"):
+                    replace_lines.append(line[1:])
+                else:
+                    search_lines.append(line)
+                    replace_lines.append(line)
+
+            code_lines = code_block.split("\n")
+            code_lines = [line for line in code_lines if line.strip() != '']
+
+            search_normalized = [line.strip()
+                                 for line in search_lines if line.strip() != '']
+            n_search = len(search_normalized)
+
+            if n_search == 0:
+                continue
+
+            match_index = -1
+            for idx in range(len(code_lines) - n_search + 1):
+                window = code_lines[idx:idx + n_search]
+                window_normalized = [line.strip() for line in window]
+
+                if window_normalized == search_normalized:
+                    match_index = idx
+                    break
+            if match_index == -1:
+                continue
             else:
-                search_lines = [line.strip() for line in search.splitlines()]
-                code_lines = code_block.splitlines()
-
-                for i in range(len(code_lines) - len(search_lines) + 1):
-                    chunk = code_lines[i:i + len(search_lines)]
-                    chunk_stripped = [line.strip() for line in chunk]
-
-                    if chunk_stripped == search_lines:
-                        indent = ""
-                        for line in chunk:
-                            if line.strip():
-                                indent = line[:line.find(line.strip())]
-                                break
-                        replace_lines = replace.splitlines()
-                        new_replace_lines = [
-                            indent + line for line in replace_lines]
-                        code_lines[i:i + len(search_lines)] = new_replace_lines
-                        code_block = "\n".join(code_lines)
-                        break
+                code_lines[match_index:match_index + n_search] = replace_lines
+                code_block = "\n".join(code_lines)
 
         return code_block
 
@@ -64,8 +90,7 @@ def parse_and_test_diff(file_path="model_responses.json"):
     crash_test_failed = 0
     class_extension_test_passed = 0
     class_extension_test_failed = 0
-
-    # Keep stats for specific models
+    
     models = [
         "x-ai/grok-4.1-fast:free",
         "kwaipilot/kat-coder-pro:free",
@@ -90,7 +115,7 @@ def parse_and_test_diff(file_path="model_responses.json"):
 
     failed_code_blocks = []
 
-    for entry in diff_edit_responses:
+    for entry in udiff_edit_responses:
         pre_code_block = entry["response"]
         model = entry["model"]
         match entry["task"]:
@@ -105,8 +130,7 @@ def parse_and_test_diff(file_path="model_responses.json"):
                 else:
                     logic_test_failed += 1
                     model_stats[model]["Logic Test"]["failed"] += 1
-                    failed_code_blocks.append(
-                        (model, pre_code_block, code_block))
+                    failed_code_blocks.append((pre_code_block, code_block))
 
             case "Crash Test":
                 code_block = extract_code_block(
@@ -120,8 +144,7 @@ def parse_and_test_diff(file_path="model_responses.json"):
                 else:
                     crash_test_failed += 1
                     model_stats[model]["Crash Test"]["failed"] += 1
-                    failed_code_blocks.append(
-                        (model, pre_code_block, code_block))
+                    failed_code_blocks.append((pre_code_block, code_block))
 
             case "Class Extension Test":
                 code_block = extract_code_block(
@@ -135,8 +158,7 @@ def parse_and_test_diff(file_path="model_responses.json"):
                 else:
                     class_extension_test_failed += 1
                     model_stats[model]["Class Extension Test"]["failed"] += 1
-                    failed_code_blocks.append(
-                        (model, pre_code_block, code_block))
+                    failed_code_blocks.append((pre_code_block, code_block))
 
     return {"logic_test_failed": logic_test_failed,
             "logic_test_passed": logic_test_passed,
@@ -148,32 +170,31 @@ def parse_and_test_diff(file_path="model_responses.json"):
             "failed_code_blocks": failed_code_blocks}
 
 
-with contextlib.redirect_stdout(None):
-    results = parse_and_test_diff()
-print("\nFailed Code Blocks:")
-for model, pre_code_block, code_block in results["failed_code_blocks"]:
-    print(f"Model: {model}")
-    print("-----")
-    print("Original response:")
-    print(pre_code_block)
-    print("-----")
-    print("Modified Code:")
-    print(code_block)
-    print("-----")
+if __name__ == "__main__":
+    with contextlib.redirect_stdout(None):
+        results = parse_and_test_udiff()
+    print("\nFailed Code Blocks:")
+    for pre_code_block, code_block in results["failed_code_blocks"]:
+        print("-----")
+        print("Original response:")
+        print(pre_code_block)
+        print("-----")
+        print("Modified Code:")
+        print(code_block)
+        print("-----")
 
-"""
-print(
-    f"Logic Test - Passed: {results['logic_test_passed']}, Failed: {results['logic_test_failed']}")
-print(
-    f"Crash Test - Passed: {results['crash_test_passed']}, Failed: {results['crash_test_failed']}")
-print(
-    f"Class Extension Test - Passed: {results['class_extension_test_passed']}, Failed: {results['class_extension_test_failed']}")
+    """
+    print(
+        f"Logic Test - Passed: {results['logic_test_passed']}, Failed: {results['logic_test_failed']}")
+    print(
+        f"Crash Test - Passed: {results['crash_test_passed']}, Failed: {results['crash_test_failed']}")
+    print(
+        f"Class Extension Test - Passed: {results['class_extension_test_passed']}, Failed: {results['class_extension_test_failed']}")
 
-print("\nModel Specific Stats:")
-for model, stats in results["model_stats"].items():
-    print(f"\nModel: {model}")
-    for test_type, result in stats.items():
-        print(
-            f"  {test_type} - Passed: {result['passed']}, Failed: {result['failed']}")
-            
-"""
+    print("\nModel Specific Stats:")
+    for model, stats in results["model_stats"].items():
+        print(f"\nModel: {model}")
+        for test_type, result in stats.items():
+            print(
+                f"  {test_type} - Passed: {result['passed']}, Failed: {result['failed']}")
+    """

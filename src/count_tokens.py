@@ -1,7 +1,12 @@
 import json
+import os
+import sys
 
+def count_tokens(file_path=None):
+    if file_path is None:
+        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+        file_path = os.path.join(project_root, 'data', 'model_responses.json')
 
-def count_tokens(file_path="model_responses.json"):
     with open(file_path, "r") as f:
         data = json.load(f)
 
@@ -16,5 +21,5 @@ def count_tokens(file_path="model_responses.json"):
 
     return token_counts
 
-
-count_tokens()
+if __name__ == "__main__":
+    count_tokens()

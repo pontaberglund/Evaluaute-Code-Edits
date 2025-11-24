@@ -12,21 +12,21 @@ The task was to generate code edits in three different ways using ten different 
     OPENROUTER_API_KEY=your_openrouter_api_key_here
     ```
 
-2.  **Dependencies**: Install the required Python packages.
+2.  **Dependencies**: Install the required Python packages from `requirements.txt`.
     ```bash
-    pip install openai python-dotenv tqdm
+    pip install -r requirements.txt
     ```
 
 ## Usage
 
 ### 1. Generate Model Responses
 
-Run the main prompting script to query the 10 defined models. This script iterates through three test scenarios (Logic, Crash, Class Extension) and three edit formats (Whole, Diff, UDiff), saving all outputs to `model_responses.json`.
+Run the main prompting script to query the 10 defined models. This script iterates through three test scenarios (Logic, Crash, Class Extension) and three edit formats (Whole, Diff, UDiff), saving all outputs to `data/model_responses.json`.
 
 ```bash
-python prompt_models.py
+python src/generate_data.py
 ```
 
 ### 2. Run the analytics notebook
 
-Open `analytics.ipynb` and run the code blocks to extract results from the responses in `model_responses.json` and view them as graphs.
+Open `notebooks/analytics.ipynb` and run the code blocks to extract results from the responses in `data/model_responses.json` and view them as graphs.
