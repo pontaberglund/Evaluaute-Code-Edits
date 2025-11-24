@@ -2,7 +2,7 @@
 
 ## The Task
 
-The task was to generate code edits in three different ways using ten different models living behind the same API. The responses were parsed according to the edit format and evalauted agains some tests.
+The task was to generate code edits in three different ways using ten different models living behind the same API. The responses were parsed according to the edit format and evalauted against some tests.
 
 ## Setup
 
