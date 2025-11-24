@@ -30,3 +30,7 @@ python src/generate_data.py
 ### 2. Run the analytics notebook
 
 Open `notebooks/analytics.ipynb` and run the code blocks to extract results from the responses in `data/model_responses.json` and view them as graphs.
+
+### 3. Run separate files to view incorrect responses
+
+Run any file in `src/evaluators` to print the failed responses.
